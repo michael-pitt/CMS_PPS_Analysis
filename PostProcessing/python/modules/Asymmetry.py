@@ -44,15 +44,15 @@ class AsymmetryModule(Module):
         self.out.branch("nano_lep_pt", "F", lenVar="nLeptons")
         self.out.branch("nano_lep_eta", "F", lenVar="nLeptons")
         self.out.branch("nano_lep_phi", "F", lenVar="nLeptons")
-        self.out.branch("nano_Lep_ntrk05", "I", lenVar="nLeptons") 
-        self.out.branch("nano_Lep_ntrk09", "I", lenVar="nLeptons")
-        self.out.branch("nano_mll", "F")
-        self.out.branch("nano_yll", "F")
-        self.out.branch("nano_ptll", "F")
-
+        self.out.branch("nano_lep_charge", "I", lenVar="nLeptons")
+        self.out.branch("nano_lep_ntrk05", "I", lenVar="nLeptons") 
+        self.out.branch("nano_lep_ntrk09", "I", lenVar="nLeptons")
         self.out.branch("nano_w_mT", "F")
         self.out.branch("nano_w_pt", "F")
         self.out.branch("nano_w_phi", "F")
+        self.out.branch("nano_mll", "F")
+        self.out.branch("nano_yll", "F")
+        self.out.branch("nano_ptll", "F")
 
     def analyze(self, event):
            
@@ -170,8 +170,9 @@ class AsymmetryModule(Module):
         self.out.fillBranch("nano_lep_pt", [l.pt for l in leptons])
         self.out.fillBranch("nano_lep_eta", [l.eta for l in leptons])
         self.out.fillBranch("nano_lep_phi", [l.phi for l in leptons])
-        self.out.fillBranch("nano_Lep_ntrk05", lep_trk05)
-        self.out.fillBranch("nano_Lep_ntrk09", lep_trk09)
+        self.out.fillBranch("nano_lep_charge", [l.charge for l in leptons])
+        self.out.fillBranch("nano_lep_ntrk05", lep_trk05)
+        self.out.fillBranch("nano_lep_ntrk09", lep_trk09)
         self.out.fillBranch("nano_mll", mll)
         self.out.fillBranch("nano_yll", yll)
         self.out.fillBranch("nano_ptll", ptll)
