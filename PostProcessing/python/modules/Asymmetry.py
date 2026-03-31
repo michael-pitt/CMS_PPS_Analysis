@@ -16,8 +16,11 @@ class AsymmetryModule(Module):
         self.out = wrappedOutputTree
         
         # Event / Pileup Summaries
-        self.out.branch("nano_nTrkPV05", "I") # nTracks at PV with pT > 0.5
-        self.out.branch("nano_nTrkPV09", "I") # nTracks at PV with pT > 0.9     
+        self.out.branch("nano_nPV", "I")
+        self.out.branch("nano_PV0_ntrk05", "I") # nTracks at PV with pT > 0.5
+        self.out.branch("nano_PV0_ntrk09", "I") # nTracks at PV with pT > 0.9    
+        self.out.branch("nano_NMPI05", "I")
+        self.out.branch("nano_NMPI09", "I")
         
         # Proton Summaries
         self.out.branch("nano_nProtons", "I")
@@ -31,6 +34,8 @@ class AsymmetryModule(Module):
         self.out.branch("nano_jet_pt", "F", lenVar="nJets")
         self.out.branch("nano_jet_eta", "F", lenVar="nJets")
         self.out.branch("nano_jet_phi", "F", lenVar="nJets")
+        self.out.branch("nano_Jet_ntrk05", "I", lenVar="nJets")
+        self.out.branch("nano_Jet_ntrk09", "I", lenVar="nJets")
         self.out.branch("nano_mJets", "F")
         self.out.branch("nano_yJets", "F")
         
@@ -39,6 +44,8 @@ class AsymmetryModule(Module):
         self.out.branch("nano_lep_pt", "F", lenVar="nLeptons")
         self.out.branch("nano_lep_eta", "F", lenVar="nLeptons")
         self.out.branch("nano_lep_phi", "F", lenVar="nLeptons")
+        self.out.branch("nano_Lep_ntrk05", "I", lenVar="nLeptons") 
+        self.out.branch("nano_Lep_ntrk09", "I", lenVar="nLeptons")
         self.out.branch("nano_mll", "F")
         self.out.branch("nano_yll", "F")
         self.out.branch("nano_ptll", "F")
@@ -60,16 +67,9 @@ class AsymmetryModule(Module):
         sel_mu = [m for m in muons if m.pt > 15 and abs(m.eta) < 2.4 and m.looseId]
         
         sel_el = [e for e in electrons if e.pt > 15 and abs(e.eta) < 2.5]
+        
+        sel_jets = [j for j in jets if j.pt > 25 and abs(j.eta) < 4.7]
 
-        sel_jets = []
-        for j in jets:
-            # Standard Tight ID criteria for 13TeV/Run3
-            pass_id = (j.neHEF < 0.9 and j.neEmEF < 0.9 and j.nConstituents > 1)
-            if abs(j.eta) < 2.4:
-                pass_id = pass_id and (j.chHEF > 0 and j.chMultiplicity > 0)
-            
-            if j.pt > 25 and abs(j.eta) < 4.7 and pass_id:
-                sel_jets.append(j)
         jet_sum = ROOT.TLorentzVector()
         for j in sel_jets: jet_sum += j.p4()
 
@@ -121,9 +121,35 @@ class AsymmetryModule(Module):
             pps_x.append(p.x)
             pps_y.append(p.y)
 
-        # 6. Fill Branches
-        self.out.fillBranch("nano_nTrkPV05", getattr(event, "PV_ntrk0p5", 0))
-        self.out.fillBranch("nano_nTrkPV09", getattr(event, "PV_ntrk0p9", 0))
+        # 6. TRACK MULTIPLICITIES & MPI LOGIC
+        nPV = getattr(event, "PV_npvs", 0) # Standard NanoAOD branch
+        
+        # Read PV0 tracks (assuming FlatTable extended the PV collection)
+        # Using index [0] because NanoAOD arrays are mapped to lists
+        pv0_ntrk05 = event.PV_ntrk0p5 if hasattr(event, "PV_ntrk0p5") else 0
+        pv0_ntrk09 = event.PV_ntrk0p9 if hasattr(event, "PV_ntrk0p9") else 0
+        
+        # Extract object footprints (Default to 0 if branch missing)
+        jet_trk05 = [getattr(j, "ntrk0p5", 0) for j in sel_jets]
+        jet_trk09 = [getattr(j, "ntrk0p9", 0) for j in sel_jets]
+        
+        lep_trk05 = [getattr(l, "ntrk0p5", 0) for l in leptons]
+        lep_trk09 = [getattr(l, "ntrk0p9", 0) for l in leptons]
+        
+        # N_trk^MPI = N_trk^PV - Sum(N_trk^objects)
+        nmpi05 = pv0_ntrk05 - sum(jet_trk05) - sum(lep_trk05)
+        nmpi09 = pv0_ntrk09 - sum(jet_trk09) - sum(lep_trk09)
+        
+        # Safety catch: prevent negative MPI in case of overlapping object cones
+        if nmpi05 < 0: nmpi05 = 0
+        if nmpi09 < 0: nmpi09 = 0
+        
+        # 7. Fill Branches
+        self.out.fillBranch("nano_nPV", getattr(event, "PV_npvs", 0))
+        self.out.fillBranch("nano_PV0_ntrk05", getattr(event, "PV_ntrk0p5", 0))
+        self.out.fillBranch("nano_PV0_ntrk09", getattr(event, "PV_ntrk0p9", 0))
+        self.out.fillBranch("nano_NMPI05", nmpi05)
+        self.out.fillBranch("nano_NMPI09", nmpi09)
 
         self.out.fillBranch("nano_nProtons", len(pps_arm))
         self.out.fillBranch("nano_pps_arm", pps_arm)
@@ -135,6 +161,8 @@ class AsymmetryModule(Module):
         self.out.fillBranch("nano_jet_pt", [j.pt for j in sel_jets])
         self.out.fillBranch("nano_jet_eta", [j.eta for j in sel_jets])
         self.out.fillBranch("nano_jet_phi", [j.phi for j in sel_jets])
+        self.out.fillBranch("nano_Jet_ntrk05", jet_trk05)
+        self.out.fillBranch("nano_Jet_ntrk09", jet_trk09)
         self.out.fillBranch("nano_mJets", jet_sum.M())
         self.out.fillBranch("nano_yJets", jet_sum.Rapidity())
 
@@ -142,6 +170,8 @@ class AsymmetryModule(Module):
         self.out.fillBranch("nano_lep_pt", [l.pt for l in leptons])
         self.out.fillBranch("nano_lep_eta", [l.eta for l in leptons])
         self.out.fillBranch("nano_lep_phi", [l.phi for l in leptons])
+        self.out.fillBranch("nano_Lep_ntrk05", lep_trk05)
+        self.out.fillBranch("nano_Lep_ntrk09", lep_trk09)
         self.out.fillBranch("nano_mll", mll)
         self.out.fillBranch("nano_yll", yll)
         self.out.fillBranch("nano_ptll", ptll)
