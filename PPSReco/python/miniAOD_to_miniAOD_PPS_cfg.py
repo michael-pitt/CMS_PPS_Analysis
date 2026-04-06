@@ -20,6 +20,8 @@ process.load('Configuration.EventContent.EventContent_cff')
 process.load('SimGeneral.MixingModule.mixNoPU_cfi')
 process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
 
+process.MessageLogger.cerr.FwkReport.reportEvery = 200;
+
 process.maxEvents = cms.untracked.PSet(
     input = cms.untracked.int32(options.maxEvents)
 )
@@ -130,7 +132,9 @@ process.beamDivergenceVtxGenerator.srcGenParticle = cms.VInputTag(
 # override PPS geometry
 process.load("Geometry.VeryForwardGeometry.geometryRPFromDD_2025_cfi")
 
-# optional: 2026 geometry / alignment / optics overrides can be added below
+# setup 2026 optics: form eraModifier
+
+# optional: alignment / optics overrides can be added below
 # once the baseline job is stable
 
 from Configuration.StandardSequences.earlyDeleteSettings_cff import customiseEarlyDelete
