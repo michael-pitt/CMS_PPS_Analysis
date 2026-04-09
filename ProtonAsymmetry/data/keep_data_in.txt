@@ -1,4 +1,3 @@
-# this is a comment
 drop *
 
 #keep objects
@@ -9,3 +8,16 @@ keep PuppiMET_*
 keep PPSLocalTrack_*
 keep PV_*
 
+# keep LHC info
+keep bunchCrossing
+keep crossingAngle
+keep betaStar*
+keep orbitNumber
+keep luminosityBlock
+keep HLT_Mu15
+keep HLT_Dimuon0_Inclusive
+keep HLT_PFJet40_L1Jet35
+keep HLT_PFJet80_L1Jet60
+keep HLT_PFJet110
+keep HLT_DoublePFJet40
+keep HLT_DoublePFJet60

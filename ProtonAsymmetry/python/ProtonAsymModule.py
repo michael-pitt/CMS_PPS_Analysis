@@ -181,14 +181,12 @@ class AsymmetryModule(Module):
 
         
         # TRACK MULTIPLICITIES & MPI LOGIC
-        nPV = getattr(event, "PV_npvs", 0) # Standard NanoAOD branch
         
-        # Read PV0 tracks (assuming FlatTable extended the PV collection)
-        # Using index [0] because NanoAOD arrays are mapped to lists
+        # Read PV0 tracks
         pv0_ntrk05 = event.PV_ntrk0p5 if hasattr(event, "PV_ntrk0p5") else 0
         pv0_ntrk09 = event.PV_ntrk0p9 if hasattr(event, "PV_ntrk0p9") else 0
         
-        # Extract object footprints (Default to 0 if branch missing)
+        # Extract object tracks (Default to 0 if branch missing)
         jet_trk05 = [getattr(j, "ntrk0p5", 0) for j in sel_jets]
         jet_trk09 = [getattr(j, "ntrk0p9", 0) for j in sel_jets]
         
@@ -204,7 +202,7 @@ class AsymmetryModule(Module):
         if nmpi09 < 0: nmpi09 = 0
         
         # 7. Fill Branches
-        self.out.fillBranch("nano_nPV", getattr(event, "PV_npvs", 0))
+        self.out.fillBranch("nano_nPV", getattr(event, "PV_npvsGood", 0))
         self.out.fillBranch("nano_PV0_ntrk05", getattr(event, "PV_ntrk0p5", 0))
         self.out.fillBranch("nano_PV0_ntrk09", getattr(event, "PV_ntrk0p9", 0))
         self.out.fillBranch("nano_NMPI05", nmpi05)
