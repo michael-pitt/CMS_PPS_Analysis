@@ -1,0 +1,8 @@
+# this is a comment
+drop *
+
+#keep nanoAOD content
+
+#keep branches created by the module
+keep nano_*
+

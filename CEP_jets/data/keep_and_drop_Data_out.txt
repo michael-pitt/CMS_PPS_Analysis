@@ -1,11 +1,16 @@
-# this is a comment
 drop *
 
 #keep nanoAOD content
-keep HLT_Mu15
-keep HLT_PFJet80_L1Jet60
+keep bunchCrossing
+keep crossingAngle
+keep betaStar*
+keep orbitNumber
+keep luminosityBlock
 keep HLT_PFJet40_L1Jet35
+keep HLT_PFJet80_L1Jet60
 keep HLT_PFJet110
+keep HLT_DoublePFJet40
+keep HLT_DoublePFJet60
 
 #keep branches created by the module
 keep nano_*

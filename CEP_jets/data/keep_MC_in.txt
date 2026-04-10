@@ -1,0 +1,11 @@
+# this is a comment
+drop *
+
+#keep objects
+keep Muon_*
+keep Electron_*
+keep Jet_*
+keep PuppiMET_*
+keep PPSLocalTrack_*
+keep PV_*
+
