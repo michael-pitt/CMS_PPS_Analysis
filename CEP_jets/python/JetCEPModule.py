@@ -56,13 +56,13 @@ class JetCEPModule(Module):
         
         # Object selection
         sel_jets = [j for j in jets if j.pt > 25 and abs(j.eta) < 4.7]
-
-        jet_sum = ROOT.TLorentzVector()
-        for j in sel_jets: jet_sum += j.p4()
-        
+        sel_jets = sorted(sel_jets,key=lambda j: j.pt,reverse=True)
+                      
         # event selection
         if len(sel_jets) < 2: return False
 
+        jet_sum = ROOT.TLorentzVector()
+        for j in sel_jets: jet_sum += j.p4()
         
         # Protons Logic (LocalTrack mapping)
         pps_arm = []
@@ -118,11 +118,11 @@ class JetCEPModule(Module):
         self.out.fillBranch("nano_mJets", jet_sum.M())
         self.out.fillBranch("nano_yJets", jet_sum.Rapidity())
         self.out.fillBranch("nano_ptJets", jet_sum.Pt())
-        self.out.fillBranch("nano_dphiJets", abs(ROOT.TVector2.Phi_mpi_pi(sel_jets[0].phi - sel_jets[1].phi))))
+        self.out.fillBranch("nano_dphiJets", abs(ROOT.TVector2.Phi_mpi_pi(sel_jets[0].phi - sel_jets[1].phi)))
 
         return True
 
 
-asymmetry_mj  = lambda : JetCEPModule(channel="mj")
+search_cep_mj  = lambda : JetCEPModule(channel="mj")
 
 
