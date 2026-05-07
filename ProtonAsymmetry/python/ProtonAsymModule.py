@@ -210,7 +210,7 @@ class AsymmetryModule(Module):
             
             # Full reconstruction using W mass constraint
             lep_p4 = ROOT.TLorentzVector()
-            lep_p4.SetPtEtaPhiM(leptons_to_save[0].pt, leptons_to_save[0].eta, leptons_to_save[0].phi, leptons_to_save[0].mass)
+            lep_p4.SetPtEtaPhiM(leptons_to_save[0].pt, leptons_to_save[0].eta, leptons_to_save[0].phi, leptons_to_save[0].mass)            
             nu_p4 = get_nu_p4(lep_p4, met_pt, met_phi)
             w_p4 = lep_p4 + nu_p4
             w_pt, w_phi = w_p4.Pt(), w_p4.Phi()
