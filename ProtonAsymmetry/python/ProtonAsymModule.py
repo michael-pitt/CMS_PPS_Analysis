@@ -49,12 +49,9 @@ class AsymmetryModule(Module):
     def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         self.out = wrappedOutputTree
         
-        # Event / Pileup Summaries
-        self.out.branch("nano_nPV", "I")
-        self.out.branch("nano_PV0_ntrk05", "I") # nTracks at PV with pT > 0.5
-        self.out.branch("nano_PV0_ntrk09", "I") # nTracks at PV with pT > 0.9    
-        self.out.branch("nano_NMPI05", "I")
-        self.out.branch("nano_NMPI09", "I")
+        # MPI Summaries 
+        self.out.branch("nano_NMPI05", "I") # nMPI at PV with pT > 0.5
+        self.out.branch("nano_NMPI09", "I") # nMPI at PV with pT > 0.9   
         
         # Proton Summaries
         self.out.branch("nano_nProtons", "I")
@@ -266,9 +263,6 @@ class AsymmetryModule(Module):
         if nmpi09 < 0: nmpi09 = 0
         
         # 7. Fill Branches
-        self.out.fillBranch("nano_nPV", getattr(event, "PV_npvsGood", 0))
-        self.out.fillBranch("nano_PV0_ntrk05", getattr(event, "PV_ntrk0p5", 0))
-        self.out.fillBranch("nano_PV0_ntrk09", getattr(event, "PV_ntrk0p9", 0))
         self.out.fillBranch("nano_NMPI05", nmpi05)
         self.out.fillBranch("nano_NMPI09", nmpi09)
 

@@ -2,6 +2,8 @@
 drop *
 
 #keep nanoAOD content
+keep PV_*
+keep OtherPV_*
 
 #keep branches created by the module
 keep nano_*

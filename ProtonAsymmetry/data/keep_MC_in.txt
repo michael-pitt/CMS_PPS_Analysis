@@ -8,4 +8,5 @@ keep Jet_*
 keep PuppiMET_*
 keep PPSLocalTrack_*
 keep PV_*
+keep OtherPV_*
 
