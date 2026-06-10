@@ -20,7 +20,10 @@ process.load('Configuration.EventContent.EventContent_cff')
 process.load('SimGeneral.MixingModule.mixNoPU_cfi')
 process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
 
-process.MessageLogger.cerr.FwkReport.reportEvery = 200;
+process.options.numberOfThreads = cms.untracked.uint32(1)
+process.options.numberOfStreams = cms.untracked.uint32(1)
+process.MessageLogger.cerr.FwkReport.reportEvery = 1;
+process.MessageLogger.cerr.threshold = cms.untracked.string("INFO")
 
 process.maxEvents = cms.untracked.PSet(
     input = cms.untracked.int32(options.maxEvents)
@@ -31,11 +34,7 @@ process.source = cms.Source(
     fileNames = cms.untracked.vstring(options.inputFiles)
 )
 
-process.options = cms.untracked.PSet(
-    numberOfThreads=cms.untracked.uint32(8),
-    numberOfStreams=cms.untracked.uint32(0),
-    wantSummary=cms.untracked.bool(False)
-)
+
 
 # MC 2026 GT
 process.GlobalTag = GlobalTag(process.GlobalTag, "150X_mcRun3_2026_realistic_v4", "")
@@ -122,18 +121,24 @@ associatePatAlgosToolsTask(process)
 # apply the PPS simulation
 from SimPPS.Configuration.Utils import setupPPSDirectSimMiniAOD
 process = setupPPSDirectSimMiniAOD(process)
+process.ppsDirectProtonSimulation.verbosity = cms.untracked.uint32(1)
 
 # add pileup protons
 process.beamDivergenceVtxGenerator.srcGenParticle = cms.VInputTag(
     cms.InputTag("genPUProtons"),
-    cms.InputTag("prunedGenParticles")
+    #cms.InputTag("prunedGenParticles") signal protons are also enter the genPUProtons collection
 )
 
 # override PPS geometry
 process.load("Geometry.VeryForwardGeometry.geometryRPFromDD_2025_cfi")
 
-# setup 2026 optics: form eraModifier
+# Use the LHCInfo from ctppsCompositeESSource instead of GT LHCInfoPerLS/PerFill
+process.ctppsBeamParametersFromLHCInfoESSource.useNewLHCInfo = cms.bool(False)
+process.ctppsInterpolatedOpticalFunctionsESSource.useNewLHCInfo = cms.bool(False)
 
+if hasattr(process, "ctppsProtons"):
+    process.ctppsProtons.useNewLHCInfo = cms.bool(False)
+    
 # optional: alignment / optics overrides can be added below
 # once the baseline job is stable
 

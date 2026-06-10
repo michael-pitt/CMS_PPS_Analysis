@@ -9,4 +9,6 @@ keep PuppiMET_*
 keep PPSLocalTrack_*
 keep PV_*
 keep OtherPV_*
+keep nGenProton
+keep GenProton_*
 
