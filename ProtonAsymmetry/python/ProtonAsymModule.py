@@ -16,9 +16,9 @@ def safe_get(obj, attr_name, default=0):
         return default
         
 def deltaR(obj1, obj2):
-  deta = obj1.eta - obj2.eta
-  dphi = ROOT.TVector2.Phi_mpi_pi(obj1.phi - obj2.phi)
-  return math.hypot(deta, dphi)
+    deta = obj1.eta - obj2.eta
+    dphi = ROOT.TVector2.Phi_mpi_pi(obj1.phi - obj2.phi)
+    return math.hypot(deta, dphi)
   
 def get_nu_p4(lep_vec, met_pt, met_phi):
     """Reconstructs the neutrino 4-vector using the W mass constraint."""
@@ -53,6 +53,12 @@ class AsymmetryModule(Module):
         self.channel = channel
         self.year = year
         self.rp_ids = {"45": [3, 23], "56": [103, 123]}
+        
+        # --- HARDCODED KINEMATIC PARAMETERS ---
+        self.min_muon_pt = 15.0      # For W/Z Control Regions
+        self.min_ele_pt = 15.0       # For W/Z Control Regions
+        self.min_soft_muon_pt = 3.0  # For Inclusive Dimuon Region
+        self.min_jet_pt = 25.0       # For Jet/MJ selections
         
     def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         self.out = wrappedOutputTree
@@ -120,17 +126,19 @@ class AsymmetryModule(Module):
         electrons = Collection(event, "Electron")
         jets = Collection(event, "Jet")
         protons = Collection(event, "PPSLocalTrack")
-               
+                
         # Object Selections & IDs
         # ----------------------------------------------------------------------
         # Muons: Loose (for ZCR/veto) and Tight (for WCR)
-        loose_mu = [m for m in muons if m.pt > 15 and abs(m.eta) < 2.5 and m.looseId]
-        tight_mu = [m for m in loose_mu if m.pt > 15 and m.tightId and m.pfRelIso04_all < 0.15]
-        soft_mu = [m for m in muons if m.pt > 3 and abs(m.eta) < 2.4 and m.looseId]
+        loose_mu = [m for m in muons if m.pt > self.min_muon_pt and abs(m.eta) < 2.5 and m.looseId and m.pfRelIso04_all < 0.25]
+        tight_mu = [m for m in loose_mu if m.tightId and m.pfRelIso04_all < 0.15]
+        
+        # Ensure soft muons are sorted by pT to correctly grab the leading pair
+        soft_mu = sorted([m for m in muons if m.pt > self.min_soft_muon_pt and abs(m.eta) < 2.4 and m.looseId], key=lambda x: x.pt, reverse=True)
         
         # Electrons: Loose (cutBased=2) and Tight (cutBased=4)
-        loose_el = [e for e in electrons if e.pt > 15 and abs(e.eta) < 2.5 and e.cutBased >= 2]
-        tight_el = [e for e in loose_el if e.pt > 15  and abs(e.eta) < 2.5 and e.cutBased >= 4]
+        loose_el = [e for e in electrons if e.pt > self.min_ele_pt and abs(e.eta) < 2.5 and e.cutBased >= 2]
+        tight_el = [e for e in loose_el if abs(e.eta) < 2.5 and e.cutBased >= 4]
 
         # Combine and sort by pT
         loose_leps = sorted(loose_mu + loose_el, key=lambda x: x.pt, reverse=True)
@@ -139,7 +147,7 @@ class AsymmetryModule(Module):
         # Object Overlap Removal (Jets vs Leptons)
         # ----------------------------------------------------------------------
         # Remove jets that fall within dR < 0.4 of any loose lepton
-        raw_jets = [j for j in jets if j.pt > 25 and abs(j.eta) < 4.7]
+        raw_jets = [j for j in jets if j.pt > self.min_jet_pt and abs(j.eta) < 4.7]
         sel_jets = []
         for j in raw_jets:
             has_overlap = False
@@ -155,55 +163,45 @@ class AsymmetryModule(Module):
 
         # Event Overlap Removal & Signal Region Definitions
         # ----------------------------------------------------------------------
-        # By using strict elif conditions based on lepton multiplicity, 
-        # events are forced into ONE region exclusively.
+        # Booleans calculated independently to prevent ELIF cross-talk bugs
         
-        is_ZCR = False
-        is_WCR = False
-        is_mj = False
-        is_dimuon_inclusive = False
-        leptons_to_save = []
-
         # DY: Exactly 2 loose leptons, opposite sign, same flavor
-        if len(loose_leps) == 2 and loose_leps[0].charge != loose_leps[1].charge and loose_leps[0].pdgId == -loose_leps[1].pdgId:
-            is_ZCR = True
-            leptons_to_save = loose_leps
-            
-        if len(soft_mu) >= 2 and soft_mu[0].charge != soft_mu[1].charge:
-            is_dimuon_inclusive = True
-            leptons_to_save = soft_mu   
-            
+        is_ZCR = (len(loose_leps) == 2 and loose_leps[0].charge != loose_leps[1].charge and loose_leps[0].pdgId == -loose_leps[1].pdgId)
+        
         # W+jets: Exactly 1 tight lepton, AND exactly 1 loose lepton (vetoes events with a 2nd loose lepton)
-        elif len(tight_leps) == 1 and len(loose_leps) == 1:
-            is_WCR = True
-            leptons_to_save = tight_leps
-            
+        is_WCR = (len(tight_leps) == 1 and len(loose_leps) == 1)
+        
         # MJ Control Region: >= 2 isolated jets, strictly 0 loose leptons
-        elif len(sel_jets) >= 2 and len(loose_leps) == 0:
-            is_mj = True
-            leptons_to_save = []
+        is_mj = (len(sel_jets) >= 2 and sel_jets[0].pt > 140.0)
+        
+        # Soft Dimuon: >= 2 soft muons, leading pair is opposite sign
+        is_dimuon_inclusive = (len(soft_mu) >= 2 and soft_mu[0].charge != soft_mu[1].charge)
 
         # 5. Event Filtering based on Channel
         # ----------------------------------------------------------------------
+        leptons_to_save = []
+        
         if self.channel == "mu":
-            # Only keep Muon WCR or ZCR
-            if not (is_ZCR or is_WCR): return False
-            if abs(leptons_to_save[0].pdgId) != 13: return False
+            if is_WCR and abs(tight_leps[0].pdgId) == 13: leptons_to_save = tight_leps
+            else: return False
 
         elif self.channel == "dimuon":
-            # Only keep soft muons in di muon channel
-            if not is_dimuon_inclusive: return False
+            if is_ZCR and abs(loose_leps[0].pdgId) == 13: leptons_to_save = loose_leps
+            else: return False
+
+        elif self.channel == "softmm":
+            if is_dimuon_inclusive: leptons_to_save = soft_mu
+            else: return False
 
         elif self.channel == "el":
-            # Only keep Electron WCR or ZCR
-            if not (is_ZCR or is_WCR): return False
-            if abs(leptons_to_save[0].pdgId) != 11: return False
+            if is_ZCR and abs(loose_leps[0].pdgId) == 11: leptons_to_save = loose_leps
+            elif is_WCR and abs(tight_leps[0].pdgId) == 11: leptons_to_save = tight_leps
+            else: return False
             
         elif self.channel == "mj":
             if not is_mj: return False
             
         elif self.channel == "zb":
-            # Save everything
             leptons_to_save = loose_leps
             
         else:
@@ -211,8 +209,10 @@ class AsymmetryModule(Module):
 
         # Calculations: Dileptons & W variables
         # ----------------------------------------------------------------------
-        mll = yll = ptll = -1.0
-        w_mT = w_pt = w_phi = w_y = w_m = -1.0
+        mll = ptll = -999.0
+        yll = -999.0
+        w_mT = w_pt = w_phi = w_m = -999.0
+        w_y = -999.0
         Mall = Yall = -999.0
         
         v_all = ROOT.TLorentzVector()
@@ -227,7 +227,7 @@ class AsymmetryModule(Module):
             v_all += leptons_to_save[0].p4()
             v_all += leptons_to_save[1].p4()
             
-        if len(leptons_to_save) >= 1:
+        if len(leptons_to_save) >= 1 and (self.channel in ["mu", "el"] and is_WCR):
             met_pt = event.PuppiMET_pt
             met_phi = event.PuppiMET_phi
             dphi = ROOT.TVector2.Phi_mpi_pi(leptons_to_save[0].phi - met_phi)
@@ -242,8 +242,8 @@ class AsymmetryModule(Module):
             lep_p4.SetPtEtaPhiM(leptons_to_save[0].pt, leptons_to_save[0].eta, leptons_to_save[0].phi, leptons_to_save[0].mass)            
             nu_p4 = get_nu_p4(lep_p4, met_pt, met_phi)
             w_p4 = lep_p4 + nu_p4
-            w_pt, w_phi = w_p4.Pt(), w_p4.Phi()
-            w_y, w_m = w_p4.Rapidity(), w_p4.M()
+            w_pt, w_phi, w_m = w_p4.Pt(), w_p4.Phi(), w_p4.M()
+            w_y = w_p4.Rapidity() if w_p4.E() > abs(w_p4.Pz()) else -999.0
             
             v_all += lep_p4
             v_all += nu_p4
@@ -310,8 +310,8 @@ class AsymmetryModule(Module):
         self.out.fillBranch("nano_jet_phi", [j.phi for j in sel_jets])
         self.out.fillBranch("nano_Jet_ntrk05", jet_trk05)
         self.out.fillBranch("nano_Jet_ntrk09", jet_trk09)
-        self.out.fillBranch("nano_mJets", jet_sum.M())
-        self.out.fillBranch("nano_yJets", jet_sum.Rapidity())
+        self.out.fillBranch("nano_mJets", jet_sum.M() if len(sel_jets) > 0 else -999.0)
+        self.out.fillBranch("nano_yJets", jet_sum.Rapidity() if jet_sum.E() > abs(jet_sum.Pz()) else -999.0)
 
         self.out.fillBranch("nano_nLeptons", len(leptons_to_save))
         self.out.fillBranch("nano_lep_pt", [l.pt for l in leptons_to_save])
@@ -346,8 +346,9 @@ class AsymmetryModule(Module):
         outputFile.cd()
         self.h_cutflow.Write()
 
-asymmetry_mu  = lambda : AsymmetryModule(channel="mu")
-asymmetry_el  = lambda : AsymmetryModule(channel="el")
-asymmetry_mj  = lambda : AsymmetryModule(channel="mj")
-asymmetry_zb  = lambda : AsymmetryModule(channel="zb")
-
+asymmetry_mu     = lambda : AsymmetryModule(channel="mu")
+asymmetry_dimuon = lambda : AsymmetryModule(channel="dimuon")
+asymmetry_softmm = lambda : AsymmetryModule(channel="softmm")
+asymmetry_el     = lambda : AsymmetryModule(channel="el")
+asymmetry_mj     = lambda : AsymmetryModule(channel="mj")
+asymmetry_zb     = lambda : AsymmetryModule(channel="zb")
