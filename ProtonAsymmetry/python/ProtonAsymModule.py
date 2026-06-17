@@ -137,7 +137,7 @@ class AsymmetryModule(Module):
         soft_mu = sorted([m for m in muons if m.pt > self.min_soft_muon_pt and abs(m.eta) < 2.4 and m.looseId], key=lambda x: x.pt, reverse=True)
         
         # Electrons: Loose (cutBased=2) and Tight (cutBased=4)
-        loose_el = [e for e in electrons if e.pt > self.min_ele_pt and abs(e.eta) < 2.5 and e.cutBased >= 2]
+        loose_el = [e for e in electrons if e.pt > self.min_ele_pt and abs(e.eta) < 2.5 and not (1.4442 < abs(e.eta) < 1.566) and e.cutBased >= 2]
         tight_el = [e for e in loose_el if abs(e.eta) < 2.5 and e.cutBased >= 4]
 
         # Combine and sort by pT
