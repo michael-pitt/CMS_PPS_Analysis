@@ -121,7 +121,7 @@ associatePatAlgosToolsTask(process)
 # apply the PPS simulation
 from SimPPS.Configuration.Utils import setupPPSDirectSimMiniAOD
 process = setupPPSDirectSimMiniAOD(process)
-process.ppsDirectProtonSimulation.verbosity = cms.untracked.uint32(1)
+#process.ppsDirectProtonSimulation.verbosity = cms.untracked.uint32(1)
 
 # add pileup protons
 process.beamDivergenceVtxGenerator.srcGenParticle = cms.VInputTag(
