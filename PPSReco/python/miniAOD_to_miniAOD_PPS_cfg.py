@@ -10,6 +10,7 @@ from Configuration.Eras.Era_Run3_2026_cff import Run3_2026
 from Configuration.AlCa.GlobalTag import GlobalTag
 
 options = VarParsing("analysis")
+options.register("opticsDB", "", VarParsing.multiplicity.singleton, VarParsing.varType.string, "Optional PPS optics SQLite DB. If empty, use optics from GT/default PPS setup.")
 options.parseArguments()
 
 process = cms.Process("PPSRECO", Run3_2026)
@@ -123,6 +124,12 @@ from SimPPS.Configuration.Utils import setupPPSDirectSimMiniAOD
 process = setupPPSDirectSimMiniAOD(process)
 #process.ppsDirectProtonSimulation.verbosity = cms.untracked.uint32(1)
 
+# need to invert the beamspot position from CMS coordinates to beam coordinates
+process.ctppsBeamParametersFromLHCInfoESSource.vtxOffsetX45 = cms.double(-0.02015)
+process.ctppsBeamParametersFromLHCInfoESSource.vtxOffsetX56 = cms.double(-0.02015)
+process.ctppsBeamParametersFromLHCInfoESSource.vtxOffsetY45 = cms.double(+0.011574)
+process.ctppsBeamParametersFromLHCInfoESSource.vtxOffsetY56 = cms.double(+0.011574)
+
 # add pileup protons
 process.beamDivergenceVtxGenerator.srcGenParticle = cms.VInputTag(
     cms.InputTag("genPUProtons"),
@@ -140,7 +147,49 @@ if hasattr(process, "ctppsProtons"):
     process.ctppsProtons.useNewLHCInfo = cms.bool(False)
     
 # optional: alignment / optics overrides can be added below
-# once the baseline job is stable
+if options.opticsDB:
+    print("Using PPS optics DB:", options.opticsDB)
+
+    process.load("CondCore.CondDB.CondDB_cfi")
+
+    process.ppsOpticsCondDB = process.CondDB.clone(
+        connect=cms.string("sqlite_file:" + options.opticsDB)
+    )
+
+    process.ppsOpticsDB = cms.ESSource(
+        "PoolDBESSource",
+        process.ppsOpticsCondDB,
+        DumpStat=cms.untracked.bool(True),
+        toGet=cms.VPSet(
+            cms.PSet(
+                record=cms.string("CTPPSOpticsRcd"),
+                tag=cms.string("PPSOpticalFunctions_test")
+            )
+        )
+    )
+
+    for name in list(process.es_prefers_()):
+        prefer = getattr(process, name)
+        if prefer.type_() == "CTPPSCompositeESSource":
+            print("Removing broad default ESPrefer:", name, prefer)
+            delattr(process, name)
+
+    pps_lhcinfo_label = "ppsDirectSimLHCInfo"
+    pps_unused_optics_label = "ppsCompositeOpticsUnused"
+
+    process.ctppsCompositeESSource.lhcInfoLabel = cms.string(pps_lhcinfo_label)
+    process.ctppsCompositeESSource.opticsLabel = cms.string(pps_unused_optics_label)
+
+    process.ctppsBeamParametersFromLHCInfoESSource.lhcInfoLabel = cms.string(pps_lhcinfo_label)
+    process.ctppsInterpolatedOpticalFunctionsESSource.lhcInfoLabel = cms.string(pps_lhcinfo_label)
+    process.ctppsInterpolatedOpticalFunctionsESSource.opticsLabel = cms.string("")
+
+    process.ppsDirectProtonSimulation.lhcInfoLabel = cms.string(pps_lhcinfo_label)
+    process.ppsDirectProtonSimulation.opticsLabel = cms.string("")
+
+    process.es_prefer_ppsOpticsDB = cms.ESPrefer("PoolDBESSource", "ppsOpticsDB")
+else:
+    print("No opticsDB provided: using GT/default PPS optics")
 
 from Configuration.StandardSequences.earlyDeleteSettings_cff import customiseEarlyDelete
 process = customiseEarlyDelete(process)
